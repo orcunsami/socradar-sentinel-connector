@@ -57,6 +57,13 @@ SOCRadarIncidents_CL
 
 First data appears within 10-15 minutes after deployment.
 
+**📊 For better data analysis**, see [SENTINEL_QUERIES.md](SENTINEL_QUERIES.md) with 14+ pre-built KQL queries:
+- View clean data (parsed JSON fields)
+- Remove duplicates by alarm_id
+- Track status changes over time
+- Analytics by severity, status, type
+- High-priority open alarms
+
 ## Troubleshooting
 
 **Logic App fails:**
