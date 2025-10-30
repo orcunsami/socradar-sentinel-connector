@@ -115,7 +115,7 @@
         },
         {
             "type": "Microsoft.Web/connections",
-            "apiVersion": "2016-06-01",
+            "apiVersion": "2018-07-01-preview",
             "name": "azureloganalyticsdatacollector",
             "location": "[resourceGroup().location]",
             "properties": {
