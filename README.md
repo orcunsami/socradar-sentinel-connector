@@ -47,22 +47,50 @@ az monitor log-analytics workspace get-shared-keys \
 3. Click **Review + create** → **Create**
 4. Wait 2-3 minutes for deployment
 
-## Verify
+## Query the Data
+
+### View All Incidents (Parsed)
 
 ```kusto
-// In Sentinel → Logs
 SOCRadarIncidents_CL
-| take 10
+| extend response = parse_json(data_s)
+| mv-expand alarm = response["data"]
+| extend
+    alarm_id = alarm.alarm_id,
+    status = alarm.status,
+    risk = alarm.alarm_risk_level,
+    alarm_text = substring(tostring(alarm.alarm_text), 0, 100),
+    asset = alarm.alarm_asset
+| project TimeGenerated, alarm_id, status, risk, asset, alarm_text
+| take 50
 ```
 
-First data appears within 10-15 minutes after deployment.
+### Count by Risk Level
 
-**📊 For better data analysis**, see [SENTINEL_QUERIES.md](SENTINEL_QUERIES.md) with 14+ pre-built KQL queries:
-- View clean data (parsed JSON fields)
-- Remove duplicates by alarm_id
-- Track status changes over time
-- Analytics by severity, status, type
-- High-priority open alarms
+```kusto
+SOCRadarIncidents_CL
+| extend response = parse_json(data_s)
+| mv-expand alarm = response["data"]
+| extend risk = tostring(alarm.alarm_risk_level)
+| summarize count() by risk
+```
+
+### Open High/Critical Risk Incidents
+
+```kusto
+SOCRadarIncidents_CL
+| extend response = parse_json(data_s)
+| mv-expand alarm = response["data"]
+| where alarm.status == "OPEN"
+| where alarm.alarm_risk_level in ("HIGH", "CRITICAL")
+| extend
+    alarm_id = alarm.alarm_id,
+    risk = alarm.alarm_risk_level,
+    alarm_text = substring(tostring(alarm.alarm_text), 0, 100)
+| project TimeGenerated, alarm_id, risk, alarm_text
+```
+
+**Note:** First data appears within 10-15 minutes after deployment.
 
 ## Troubleshooting
 
