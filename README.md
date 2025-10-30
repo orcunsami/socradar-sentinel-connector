@@ -8,7 +8,7 @@ Automatically ingest SOCRadar threat intelligence and incidents into Microsoft S
 
 - Pulls SOCRadar incidents every 5 minutes
 - Writes data to `SOCRadarIncidents_CL` table in Sentinel
-- Creates Logic App and API connection automatically
+- Uses Azure Monitor HTTP Data Collector API (reliable, production-ready)
 
 ## Prerequisites
 
