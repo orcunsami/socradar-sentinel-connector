@@ -35,25 +35,43 @@
         }
     },
     "variables": {
-        "logType": "SOCRadarIncidents_CL"
+        "logType": "SOCRadarIncidents_CL",
+        "connectionName": "[concat('azureloganalyticsdatacollector-', uniqueString(resourceGroup().id))]",
+        "location": "[resourceGroup().location]"
     },
     "resources": [
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[variables('connectionName')]",
+            "location": "[variables('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', variables('location'), '/managedApis/azureloganalyticsdatacollector')]"
+                },
+                "displayName": "[variables('connectionName')]",
+                "parameterValues": {
+                    "username": "[parameters('workspaceId')]",
+                    "password": "[parameters('workspaceKey')]"
+                }
+            }
+        },
         {
             "type": "Microsoft.Logic/workflows",
             "apiVersion": "2017-07-01",
             "name": "[parameters('logicAppName')]",
-            "location": "[resourceGroup().location]",
+            "location": "[variables('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/connections', variables('connectionName'))]"
+            ],
             "properties": {
                 "state": "Enabled",
                 "definition": {
                     "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
                     "contentVersion": "1.0.0.0",
                     "parameters": {
-                        "workspaceId": {
-                            "type": "string"
-                        },
-                        "workspaceKey": {
-                            "type": "securestring"
+                        "$connections": {
+                            "type": "Object"
                         },
                         "socradarCompanyId": {
                             "type": "string"
@@ -86,34 +104,39 @@
                                 }
                             }
                         },
-                        "Send_to_Log_Analytics": {
+                        "Send_Data": {
                             "runAfter": {
                                 "Get_SOCRadar_Incidents": [
                                     "Succeeded"
                                 ]
                             },
-                            "type": "Http",
+                            "type": "ApiConnection",
                             "inputs": {
-                                "uri": "@{concat('https://', parameters('workspaceId'), '.ods.opinsights.azure.com/api/logs?api-version=2016-04-01')}",
-                                "method": "POST",
-                                "headers": {
-                                    "Content-Type": "application/json",
-                                    "Log-Type": "@parameters('logType')",
-                                    "x-ms-date": "@{utcNow('r')}",
-                                    "Authorization": "@{concat('SharedKey ', parameters('workspaceId'), ':', base64(hmacsha256(base64(parameters('workspaceKey')), concat('POST\n', string(length(string(body('Get_SOCRadar_Incidents')))), '\napplication/json\nx-ms-date:', utcNow('r'), '\n/api/logs'))))}"
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureloganalyticsdatacollector']['connectionId']"
+                                    }
                                 },
-                                "body": "@body('Get_SOCRadar_Incidents')"
+                                "method": "post",
+                                "body": "@{body('Get_SOCRadar_Incidents')}",
+                                "headers": {
+                                    "Log-Type": "@parameters('logType')"
+                                },
+                                "path": "/api/logs"
                             }
                         }
                     },
                     "outputs": {}
                 },
                 "parameters": {
-                    "workspaceId": {
-                        "value": "[parameters('workspaceId')]"
-                    },
-                    "workspaceKey": {
-                        "value": "[parameters('workspaceKey')]"
+                    "$connections": {
+                        "value": {
+                            "azureloganalyticsdatacollector": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', variables('connectionName'))]",
+                                "connectionName": "[variables('connectionName')]",
+                                "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', variables('location'), '/managedApis/azureloganalyticsdatacollector')]"
+                            }
+                        }
                     },
                     "socradarCompanyId": {
                         "value": "[parameters('socradarCompanyId')]"
