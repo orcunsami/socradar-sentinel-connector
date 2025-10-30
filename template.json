@@ -93,18 +93,20 @@
                                 "body": "@{body('HTTP')}",
                                 "headers": {
                                     "Log-Type": "SOCRadarIncidents_CL"
-                                }
+                                },
+                                "path": "/api/logs"
                             }
                         }
-                    }
+                    },
+                    "outputs": {}
                 },
                 "parameters": {
                     "$connections": {
                         "value": {
                             "azureloganalyticsdatacollector": {
+                                "id": "[concat('/subscriptions/', subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/azureloganalyticsdatacollector')]",
                                 "connectionId": "[resourceId('Microsoft.Web/connections', 'azureloganalyticsdatacollector')]",
-                                "connectionName": "azureloganalyticsdatacollector",
-                                "id": "[subscription().id]"
+                                "connectionName": "azureloganalyticsdatacollector"
                             }
                         }
                     }
