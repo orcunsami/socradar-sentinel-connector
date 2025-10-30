@@ -115,13 +115,14 @@
         },
         {
             "type": "Microsoft.Web/connections",
-            "apiVersion": "2018-07-01-preview",
+            "apiVersion": "2016-06-01",
             "name": "azureloganalyticsdatacollector",
             "location": "[resourceGroup().location]",
             "properties": {
                 "displayName": "SentinelConnection",
+                "customParameterValues": {},
                 "api": {
-                    "id": "[concat('/subscriptions/', subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/azureloganalyticsdatacollector')]"
+                    "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/azureloganalyticsdatacollector')]"
                 },
                 "parameterValues": {
                     "username": "[parameters('workspaceId')]",
