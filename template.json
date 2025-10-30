@@ -122,7 +122,7 @@
                 "displayName": "SentinelConnection",
                 "customParameterValues": {},
                 "api": {
-                    "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/azureloganalyticsdatacollector')]"
+                    "id": "[concat('/subscriptions/', subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/azureloganalyticsdatacollector')]"
                 },
                 "parameterValues": {
                     "username": "[parameters('workspaceId')]",
