@@ -49,45 +49,62 @@ az monitor log-analytics workspace get-shared-keys \
 
 ## Query the Data
 
-### View All Incidents (Parsed)
+Run these queries in **Microsoft Sentinel → Logs** to view your SOCRadar incidents.
+
+### 1. View All Incidents
 
 ```kusto
 SOCRadarIncidents_CL
-| extend response = parse_json(data_s)
-| mv-expand alarm = response["data"]
+| extend ParsedData = todynamic(data_s)
+| mv-expand alarm = ParsedData.data
 | extend
-    alarm_id = alarm.alarm_id,
-    status = alarm.status,
-    risk = alarm.alarm_risk_level,
-    alarm_text = substring(tostring(alarm.alarm_text), 0, 100),
-    asset = alarm.alarm_asset
-| project TimeGenerated, alarm_id, status, risk, asset, alarm_text
+    alarm_id = tolong(alarm.alarm_id),
+    status = tostring(alarm.status),
+    risk_level = tostring(alarm.alarm_risk_level),
+    alarm_text = tostring(alarm.alarm_text),
+    alarm_type = tostring(alarm.alarm_type_details),
+    date = todatetime(alarm.date)
+| project TimeGenerated, alarm_id, status, risk_level, alarm_type, date, alarm_text
+| sort by TimeGenerated desc
 | take 50
 ```
 
-### Count by Risk Level
+### 2. Count by Risk Level
 
 ```kusto
 SOCRadarIncidents_CL
-| extend response = parse_json(data_s)
-| mv-expand alarm = response["data"]
-| extend risk = tostring(alarm.alarm_risk_level)
-| summarize count() by risk
+| extend ParsedData = todynamic(data_s)
+| mv-expand alarm = ParsedData.data
+| extend risk_level = tostring(alarm.alarm_risk_level)
+| summarize count() by risk_level
+| sort by count_ desc
 ```
 
-### Open High/Critical Risk Incidents
+### 3. Open High/Critical Incidents
 
 ```kusto
 SOCRadarIncidents_CL
-| extend response = parse_json(data_s)
-| mv-expand alarm = response["data"]
-| where alarm.status == "OPEN"
-| where alarm.alarm_risk_level in ("HIGH", "CRITICAL")
+| extend ParsedData = todynamic(data_s)
+| mv-expand alarm = ParsedData.data
 | extend
-    alarm_id = alarm.alarm_id,
-    risk = alarm.alarm_risk_level,
-    alarm_text = substring(tostring(alarm.alarm_text), 0, 100)
-| project TimeGenerated, alarm_id, risk, alarm_text
+    alarm_id = tolong(alarm.alarm_id),
+    status = tostring(alarm.status),
+    risk_level = tostring(alarm.alarm_risk_level),
+    alarm_text = tostring(alarm.alarm_text)
+| where status == "OPEN" and risk_level in ("HIGH", "CRITICAL")
+| project TimeGenerated, alarm_id, status, risk_level, alarm_text
+| sort by TimeGenerated desc
+```
+
+### 4. Count by Status
+
+```kusto
+SOCRadarIncidents_CL
+| extend ParsedData = todynamic(data_s)
+| mv-expand alarm = ParsedData.data
+| extend status = tostring(alarm.status)
+| summarize count() by status
+| render columnchart
 ```
 
 **Note:** First data appears within 10-15 minutes after deployment.
