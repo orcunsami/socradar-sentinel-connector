@@ -13,29 +13,40 @@ To see specific fields, you need to **parse the JSON** using KQL (Kusto Query La
 
 ## 🔍 Basic Queries
 
-### 1. View Last 10 Alarms (Clean Format)
+### 1. View Last 10 Alarms (Clean Format, 50-Char Limit)
 
 ```kusto
 SOCRadarIncidents_CL
 | extend
     alarm_id = tostring(parse_json(RawData).alarm_id),
-    alarm_name = tostring(parse_json(RawData).alarm_name),
-    alarm_status = tostring(parse_json(RawData).alarm_status),
-    alarm_severity = tostring(parse_json(RawData).alarm_severity),
-    alarm_type = tostring(parse_json(RawData).alarm_type),
-    created_date = todatetime(parse_json(RawData).created_date)
+    alarm_text = substring(tostring(parse_json(RawData).alarm_text), 0, 50),
+    status = substring(tostring(parse_json(RawData).status), 0, 50),
+    risk_level = substring(tostring(parse_json(RawData).alarm_risk_level), 0, 50),
+    alarm_type = substring(tostring(parse_json(RawData).alarm_type_details), 0, 50),
+    asset = substring(tostring(parse_json(RawData).alarm_asset), 0, 50),
+    created = todatetime(parse_json(RawData).date)
 | project
     TimeGenerated,
     alarm_id,
-    alarm_name,
-    alarm_status,
-    alarm_severity,
+    alarm_text,
+    status,
+    risk_level,
     alarm_type,
-    created_date
+    asset,
+    created
 | take 10
 ```
 
-**What it does**: Shows key fields in readable columns instead of raw JSON.
+**What it does**: Shows key fields in readable columns (max 50 chars each) instead of raw JSON.
+
+**Actual SOCRadar Fields:**
+- `alarm_id` - Unique identifier
+- `alarm_text` - Alarm description
+- `status` - Current status (Open, Closed, etc.)
+- `alarm_risk_level` - Risk/severity level
+- `alarm_type_details` - Type of alarm
+- `alarm_asset` - Affected asset
+- `date` - Creation date
 
 ---
 
@@ -63,20 +74,22 @@ SOCRadarIncidents_CL
 
 ```kusto
 SOCRadarIncidents_CL
-| extend
-    alarm_id = tostring(parse_json(RawData).alarm_id),
-    alarm_name = tostring(parse_json(RawData).alarm_name),
-    alarm_status = tostring(parse_json(RawData).alarm_status),
-    alarm_severity = tostring(parse_json(RawData).alarm_severity),
-    created_date = todatetime(parse_json(RawData).created_date)
+| extend alarm_id = tostring(parse_json(RawData).alarm_id)
 | summarize arg_max(TimeGenerated, *) by alarm_id
+| extend
+    alarm_text = substring(tostring(parse_json(RawData).alarm_text), 0, 50),
+    status = substring(tostring(parse_json(RawData).status), 0, 50),
+    risk_level = substring(tostring(parse_json(RawData).alarm_risk_level), 0, 50),
+    alarm_type = substring(tostring(parse_json(RawData).alarm_type_details), 0, 50),
+    created = todatetime(parse_json(RawData).date)
 | project
     LastSeen = TimeGenerated,
     alarm_id,
-    alarm_name,
-    alarm_status,
-    alarm_severity,
-    created_date
+    alarm_text,
+    status,
+    risk_level,
+    alarm_type,
+    created
 | sort by LastSeen desc
 ```
 
@@ -238,20 +251,23 @@ SOCRadarIncidents_CL
 
 ---
 
-### 11. Critical & High Severity Alarms (Open Only)
+### 11. Critical & High Risk Alarms (Open Only)
 
 ```kusto
 SOCRadarIncidents_CL
 | extend
     alarm_id = tostring(parse_json(RawData).alarm_id),
-    alarm_name = tostring(parse_json(RawData).alarm_name),
-    alarm_status = tostring(parse_json(RawData).alarm_status),
-    alarm_severity = tostring(parse_json(RawData).alarm_severity)
-| where alarm_status == "Open" or alarm_status == "open"
-| where alarm_severity in ("Critical", "High", "critical", "high")
+    status = tostring(parse_json(RawData).status),
+    risk_level = tostring(parse_json(RawData).alarm_risk_level)
+| where status in ("Open", "open", "OPEN")
+| where risk_level in ("Critical", "High", "critical", "high", "CRITICAL", "HIGH")
 | summarize arg_max(TimeGenerated, *) by alarm_id
-| project alarm_id, alarm_name, alarm_severity, alarm_status
-| sort by alarm_severity asc
+| extend
+    alarm_text = substring(tostring(parse_json(RawData).alarm_text), 0, 50),
+    alarm_type = substring(tostring(parse_json(RawData).alarm_type_details), 0, 50),
+    created = todatetime(parse_json(RawData).date)
+| project alarm_id, alarm_text, status, risk_level, alarm_type, created
+| sort by created desc
 ```
 
 **What it does**: Filters for actionable high-priority alarms that need attention.
