@@ -100,7 +100,9 @@
                                 "uri": "@{concat('https://platform.socradar.com/api/company/', parameters('socradarCompanyId'), '/incidents/v4')}",
                                 "method": "GET",
                                 "queries": {
-                                    "key": "@parameters('socradarApiKey')"
+                                    "key": "@parameters('socradarApiKey')",
+                                    "start_date": "@{div(sub(ticks(utcNow()), ticks('1970-01-01T00:00:00Z')), 10000000) - 600}",
+                                    "limit": "1000"
                                 }
                             }
                         },
@@ -132,6 +134,13 @@
                             "type": "Foreach",
                             "foreach": "@body('Parse_JSON_Response')['data']",
                             "actions": {
+                                "Truncate_Large_Fields": {
+                                    "type": "JavaScriptCode",
+                                    "inputs": {
+                                        "code": "const alarm = workflowContext.actions.For_each_alarm.currentItem;\nconst maxLength = 30000;\nconst result = {};\n\nfor (const key in alarm) {\n  if (alarm.hasOwnProperty(key)) {\n    if (typeof alarm[key] === 'string' && alarm[key].length > maxLength) {\n      result[key] = alarm[key].substring(0, maxLength);\n    } else {\n      result[key] = alarm[key];\n    }\n  }\n}\n\nreturn result;"
+                                    },
+                                    "runAfter": {}
+                                },
                                 "Send_Data": {
                                     "type": "ApiConnection",
                                     "inputs": {
@@ -141,11 +150,16 @@
                                             }
                                         },
                                         "method": "post",
-                                        "body": "@items('For_each_alarm')",
+                                        "body": "@body('Truncate_Large_Fields')",
                                         "headers": {
                                             "Log-Type": "@parameters('logType')"
                                         },
                                         "path": "/api/logs"
+                                    },
+                                    "runAfter": {
+                                        "Truncate_Large_Fields": [
+                                            "Succeeded"
+                                        ]
                                     }
                                 }
                             }

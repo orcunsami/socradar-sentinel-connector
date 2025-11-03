@@ -16,6 +16,18 @@ Automatically ingest SOCRadar threat intelligence into Microsoft Sentinel every 
 4. Wait 15 minutes for first data
 5. Query in Sentinel: `SOCRadarIncidents_CL | take 10`
 
+## Data Safety & Optimization
+
+**Automatic Field Truncation:** All string fields are automatically limited to 30,000 characters before sending to Azure. This prevents data loss due to Azure Log Analytics limits (32 KB per field).
+
+**Time-based Filtering:** The connector fetches only incidents from the last 10 minutes on each run (5-minute recurrence with 5-minute overlap for safety). This ensures:
+- No duplicate data ingestion
+- Efficient API usage
+- Reduced costs
+- Maximum 1,000 incidents per run (configurable limit)
+
+**Reference:** [Microsoft Azure Monitor Service Limits](https://learn.microsoft.com/en-us/azure/azure-monitor/fundamentals/service-limits) - Data Collector API section states: "Fields longer than 32 KB are truncated."
+
 ## Query Examples
 
 **Recent alarms:**
