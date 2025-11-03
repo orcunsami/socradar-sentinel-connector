@@ -1,0 +1,185 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "logicAppName": {
+            "type": "string",
+            "defaultValue": "[concat('SOCRadar-Sentinel-Connector-', uniqueString(resourceGroup().id))]",
+            "metadata": {
+                "description": "Name of the Logic App to be created."
+            }
+        },
+        "workspaceId": {
+            "type": "string",
+            "metadata": {
+                "description": "Log Analytics Workspace ID where data will be sent."
+            }
+        },
+        "workspaceKey": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Log Analytics Workspace Primary Key."
+            }
+        },
+        "socradarCompanyId": {
+            "type": "string",
+            "metadata": {
+                "description": "SOCRadar Company ID."
+            }
+        },
+        "socradarApiKey": {
+            "type": "securestring",
+            "metadata": {
+                "description": "SOCRadar API Key."
+            }
+        }
+    },
+    "variables": {
+        "logType": "SOCRadarIncidents_CL",
+        "connectionName": "[concat('azureloganalyticsdatacollector-', uniqueString(resourceGroup().id))]",
+        "location": "[resourceGroup().location]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[variables('connectionName')]",
+            "location": "[variables('location')]",
+            "properties": {
+                "api": {
+                    "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', variables('location'), '/managedApis/azureloganalyticsdatacollector')]"
+                },
+                "displayName": "[variables('connectionName')]",
+                "parameterValues": {
+                    "username": "[parameters('workspaceId')]",
+                    "password": "[parameters('workspaceKey')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[variables('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/connections', variables('connectionName'))]"
+            ],
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "type": "Object"
+                        },
+                        "socradarCompanyId": {
+                            "type": "string"
+                        },
+                        "socradarApiKey": {
+                            "type": "securestring"
+                        },
+                        "logType": {
+                            "type": "string"
+                        }
+                    },
+                    "triggers": {
+                        "Recurrence": {
+                            "recurrence": {
+                                "interval": 5,
+                                "frequency": "Minute"
+                            },
+                            "type": "Recurrence"
+                        }
+                    },
+                    "actions": {
+                        "Get_SOCRadar_Incidents": {
+                            "runAfter": {},
+                            "type": "Http",
+                            "inputs": {
+                                "uri": "@{concat('https://platform.socradar.com/api/company/', parameters('socradarCompanyId'), '/incidents/v4')}",
+                                "method": "GET",
+                                "queries": {
+                                    "key": "@parameters('socradarApiKey')"
+                                }
+                            }
+                        },
+                        "Parse_JSON_Response": {
+                            "runAfter": {
+                                "Get_SOCRadar_Incidents": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ParseJson",
+                            "inputs": {
+                                "content": "@body('Get_SOCRadar_Incidents')",
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "For_each_alarm": {
+                            "runAfter": {
+                                "Parse_JSON_Response": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Foreach",
+                            "foreach": "@body('Parse_JSON_Response')['data']",
+                            "actions": {
+                                "Send_Data": {
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azureloganalyticsdatacollector']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": "@items('For_each_alarm')",
+                                        "headers": {
+                                            "Log-Type": "@parameters('logType')"
+                                        },
+                                        "path": "/api/logs"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azureloganalyticsdatacollector": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', variables('connectionName'))]",
+                                "connectionName": "[variables('connectionName')]",
+                                "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', variables('location'), '/managedApis/azureloganalyticsdatacollector')]"
+                            }
+                        }
+                    },
+                    "socradarCompanyId": {
+                        "value": "[parameters('socradarCompanyId')]"
+                    },
+                    "socradarApiKey": {
+                        "value": "[parameters('socradarApiKey')]"
+                    },
+                    "logType": {
+                        "value": "[variables('logType')]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "logicAppName": {
+            "type": "string",
+            "value": "[parameters('logicAppName')]"
+        }
+    }
+}

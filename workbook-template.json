@@ -1,0 +1,211 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## SOCRadar Alarms Dashboard\n\nThis workbook provides real-time visibility into SOCRadar security alarms ingested into Microsoft Sentinel.\n\n**Data Source:** `SOCRadarIncidents_CL` table\n\n**Refresh Interval:** Every 5 minutes (Logic App)"
+      },
+      "name": "text - 0"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SOCRadarIncidents_CL\n| where TimeGenerated > {TimeRange}\n| project\n    TimeGenerated,\n    AlarmID = tolong(alarm_id_d),\n    Status = tostring(status_s),\n    RiskLevel = tostring(alarm_risk_level_s),\n    AlarmText = tostring(alarm_text_s),\n    Asset = tostring(alarm_asset_s)\n| sort by TimeGenerated desc\n| take 100",
+        "size": 0,
+        "title": "Recent Alarms",
+        "timeContext": {
+          "durationMs": 86400000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "RiskLevel",
+              "formatter": 18,
+              "formatOptions": {
+                "thresholdsOptions": "colors",
+                "thresholdsGrid": [
+                  {
+                    "operator": "==",
+                    "thresholdValue": "CRITICAL",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "==",
+                    "thresholdValue": "HIGH",
+                    "representation": "orange",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "==",
+                    "thresholdValue": "MEDIUM",
+                    "representation": "yellow",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "==",
+                    "thresholdValue": "LOW",
+                    "representation": "green",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "Default",
+                    "representation": "gray",
+                    "text": "{0}{1}"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "name": "query - alarm list"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "SOCRadarIncidents_CL\n| where TimeGenerated > {TimeRange}\n| summarize AlarmCount = count() by RiskLevel = tostring(alarm_risk_level_s)\n| sort by AlarmCount desc",
+              "size": 3,
+              "title": "Alarms by Risk Level",
+              "timeContext": {
+                "durationMs": 86400000
+              },
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "piechart"
+            },
+            "customWidth": "50",
+            "name": "query - risk level"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "SOCRadarIncidents_CL\n| where TimeGenerated > {TimeRange}\n| summarize AlarmCount = count() by Status = tostring(status_s)\n| sort by AlarmCount desc",
+              "size": 3,
+              "title": "Alarms by Status",
+              "timeContext": {
+                "durationMs": 86400000
+              },
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "barchart"
+            },
+            "customWidth": "50",
+            "name": "query - status"
+          }
+        ]
+      },
+      "name": "group - charts"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SOCRadarIncidents_CL\n| where TimeGenerated > {TimeRange}\n| summarize AlarmCount = count() by bin(TimeGenerated, {TimeRange:grain}), RiskLevel = tostring(alarm_risk_level_s)\n| render timechart",
+        "size": 0,
+        "title": "Alarm Timeline by Risk Level",
+        "timeContext": {
+          "durationMs": 86400000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "timechart"
+      },
+      "name": "query - timeline"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SOCRadarIncidents_CL\n| where TimeGenerated > {TimeRange}\n| where tostring(status_s) == \"OPEN\" and tostring(alarm_risk_level_s) in (\"HIGH\", \"CRITICAL\")\n| project\n    TimeGenerated,\n    AlarmID = tolong(alarm_id_d),\n    RiskLevel = tostring(alarm_risk_level_s),\n    AlarmText = tostring(alarm_text_s),\n    Asset = tostring(alarm_asset_s)\n| sort by TimeGenerated desc\n| take 50",
+        "size": 0,
+        "title": "Open High/Critical Alarms",
+        "timeContext": {
+          "durationMs": 86400000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "RiskLevel",
+              "formatter": 18,
+              "formatOptions": {
+                "thresholdsOptions": "colors",
+                "thresholdsGrid": [
+                  {
+                    "operator": "==",
+                    "thresholdValue": "CRITICAL",
+                    "representation": "redBright"
+                  },
+                  {
+                    "operator": "==",
+                    "thresholdValue": "HIGH",
+                    "representation": "orange"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "name": "query - critical alarms"
+    }
+  ],
+  "parameters": [
+    {
+      "id": "b859a03f-2283-4e0a-b0c2-321beb388c1b",
+      "version": "KqlParameterItem/1.0",
+      "name": "TimeRange",
+      "type": 4,
+      "isRequired": true,
+      "value": {
+        "durationMs": 86400000
+      },
+      "typeSettings": {
+        "selectableValues": [
+          {
+            "durationMs": 3600000
+          },
+          {
+            "durationMs": 14400000
+          },
+          {
+            "durationMs": 43200000
+          },
+          {
+            "durationMs": 86400000
+          },
+          {
+            "durationMs": 172800000
+          },
+          {
+            "durationMs": 604800000
+          }
+        ],
+        "allowCustom": true
+      },
+      "timeContext": {
+        "durationMs": 86400000
+      },
+      "label": "Time Range"
+    }
+  ],
+  "styleSettings": {},
+  "fromTemplateId": "sentinel-UserWorkbook",
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
